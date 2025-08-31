@@ -1,68 +1,95 @@
 -- LocalScript trong StarterPlayerScripts
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local root = character:WaitForChild("HumanoidRootPart")
 
--- Tạo GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FlyMenu"
-screenGui.Parent = player:WaitForChild("PlayerGui")
+-- Đợi PlayerGui có sẵn
+local playerGui = player:WaitForChild("PlayerGui")
 
-local button = Instance.new("TextButton")
-button.Name = "FlyButton"
-button.Size = UDim2.new(0, 200, 0, 50)
-button.Position = UDim2.new(0.5, -100, 0.9, 0)
-button.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.SourceSansBold
-button.TextSize = 24
-button.Text = "Fly OFF"
-button.Parent = screenGui
+-- Hàm tạo GUI
+local function createFlyMenu()
+	-- Nếu GUI đã có rồi thì bỏ qua
+	if playerGui:FindFirstChild("FlyMenu") then return end
 
--- Fly logic
-local flying = false
-local bodyVel
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "FlyMenu"
+	screenGui.ResetOnSpawn = false
+	screenGui.Parent = playerGui
 
-button.MouseButton1Click:Connect(function()
-	if flying == false then
-		-- Bật fly
-		flying = true
-		button.Text = "Fly ON"
+	local button = Instance.new("TextButton")
+	button.Name = "FlyButton"
+	button.Size = UDim2.new(0, 200, 0, 50)
+	button.Position = UDim2.new(0.5, -100, 0.85, 0)
+	button.BackgroundColor3 = Color3.fromRGB(50, 150, 250)
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.Font = Enum.Font.SourceSansBold
+	button.TextSize = 24
+	button.Text = "Fly OFF"
+	button.Parent = screenGui
 
-		bodyVel = Instance.new("BodyVelocity")
-		bodyVel.MaxForce = Vector3.new(4000, 4000, 4000)
-		bodyVel.Velocity = Vector3.new(0, 0, 0)
-		bodyVel.Parent = root
+	-- Biến bay
+	local flying = false
+	local bodyVel
 
-		-- Update bay theo input
-		RunService.RenderStepped:Connect(function()
-			if flying and bodyVel and root then
-				local moveDir = humanoid.MoveDirection
-				local speed = 50
+	local function toggleFly()
+		local character = player.Character or player.CharacterAdded:Wait()
+		local humanoid = character:WaitForChild("Humanoid")
+		local root = character:WaitForChild("HumanoidRootPart")
 
-				-- bay lên bằng Space, xuống bằng Ctrl
-				local up = 0
-				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-					up = speed
-				elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-					up = -speed
+		if not flying then
+			-- Bật bay
+			flying = true
+			button.Text = "Fly ON"
+
+			bodyVel = Instance.new("BodyVelocity")
+			bodyVel.MaxForce = Vector3.new(4000, 4000, 4000)
+			bodyVel.Velocity = Vector3.new(0, 0, 0)
+			bodyVel.Parent = root
+
+			-- Update mỗi frame
+			local connection
+			connection = RunService.RenderStepped:Connect(function()
+				if flying and bodyVel and root then
+					local moveDir = humanoid.MoveDirection
+					local speed = 50
+
+					-- bay lên / xuống
+					local up = 0
+					if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+						up = speed
+					elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+						up = -speed
+					end
+
+					bodyVel.Velocity = Vector3.new(moveDir.X * speed, up, moveDir.Z * speed)
+				else
+					if connection then
+						connection:Disconnect()
+					end
 				end
+			end)
 
-				bodyVel.Velocity = Vector3.new(moveDir.X * speed, up, moveDir.Z * speed)
+		else
+			-- Tắt bay
+			flying = false
+			button.Text = "Fly OFF"
+			if bodyVel then
+				bodyVel:Destroy()
+				bodyVel = nil
 			end
-		end)
-	else
-		-- Tắt fly
-		flying = false
-		button.Text = "Fly OFF"
-		if bodyVel then
-			bodyVel:Destroy()
-			bodyVel = nil
 		end
 	end
+
+	button.MouseButton1Click:Connect(toggleFly)
+end
+
+-- Tạo menu khi player vào game
+createFlyMenu()
+
+-- Nếu reset nhân vật thì vẫn giữ menu
+player.CharacterAdded:Connect(function()
+	createFlyMenu()
 end)
